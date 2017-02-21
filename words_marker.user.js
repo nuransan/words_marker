@@ -2,7 +2,8 @@
 // @name        words marker
 // @namespace   x
 // @include     https://toster.ru/q/397638*
-// @version     1
+// @include     *
+// @version     1.01
 // @grant       GM_getValue
 // @grant       GM_setValue
 // @grant       GM_addStyle
@@ -11,7 +12,8 @@
 // ==/UserScript==
 //
 /* jshint -W097 */
-/* globals console, GM_addStyle, GM_getResourceText, GM_getValue, GM_setValue */
+/* jshint -W035 */
+/* globals $, console, GM_addStyle, GM_getResourceText, GM_getValue, GM_setValue */
 //
 'use strict';
 //
@@ -34,7 +36,7 @@ $(function () {
             node = range.startContainer;
             offset = range.startOffset;
         }
-        if (node && node.nodeType === Node.TEXT_NODE) {
+        if (node && node.nodeType === Node.TEXT_NODE && node.textContent) {
             const word_removed = try_remove_word(node);
             if (word_removed) {
                 return word_removed;
@@ -50,6 +52,7 @@ $(function () {
         }
     }
 
+    //
     function try_remove_word(node) {
         const $marked_word = $(node).parent('._highlighted');
         if ($marked_word.length) { // removing word
@@ -62,6 +65,7 @@ $(function () {
         }
     }
 
+    //
     function mark_word(source_node, begin, end, do_append) {
         const text = source_node.textContent;
         /* jshint -W014 */
@@ -76,40 +80,45 @@ $(function () {
         if (do_append) {
             words_set.add(word.toLowerCase());
             GM_setValue('word_list', JSON.stringify([...words_set]));
-            console.log('Word marked and appended: \"' + word + '\"');
+            console.log('Word marked and appended to dictionary: \"' + word + '\"');
         } else {
-            console.log('Word marked: \"' + word + '\"');
+            // console.log('Word marked: \"' + word + '\"');
         }
         return [forward_node, new_node, tail_node];
     }
 
+    //
     function search_in(node) {
         const text = node.textContent;
-        const re = /[0-9A-Za-zА-Яа-яЁё]+/g;
-        for (let match = re.exec(text); match !== null; match = re.exec(text)) {
-            const word = match[0];
-            if (words_set.has(word.toLowerCase())) {
-                const [_1, _2, tail_node] = mark_word(node, match.index, re.lastIndex);
-                return tail_node ? search_in(tail_node) + 1 : 1;
+        if (text) {
+            const re = /[0-9A-Za-zА-Яа-яЁё]+/g;
+            for (let match = re.exec(text); match !== null; match = re.exec(text)) {
+                const word = match[0];
+                if (words_set.has(word.toLowerCase())) {
+                    const [_1, _2, tail_node] = mark_word(node, match.index, re.lastIndex);
+                    return tail_node ? search_in(tail_node) + 1 : 1;
+                }
             }
         }
         return 0;
     }
 
-    $('div[itemprop~="text"]').mousedown(function (event) {
-        if (event.which === 1) {
+    //
+    $(document).click(function (event) {
+        if (event.which === 1 && event.ctrlKey) {
             const word = processWordAt(event.clientX, event.clientY);
             // console.log('Word under cursor: ', word);
-            if (word !== '') {
-                $(".btn_add-question").text(word);
+            if (word) {
+                return false;
             }
         }
-    }).each(function () {
-        $(this).contents().filter(function () {
-            return this.nodeType === Node.TEXT_NODE;
-        }).each(function () {
-            const occurrences = search_in(this);
-            // console.log('In ', this, ' found ', occurrences, ' occurrences');
-        });
     });
+    //
+    const t1 = Date.now();
+    const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, null, false);
+    for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+        const occurrences = search_in(node);
+        // console.log('In ', this, ' found ', occurrences, ' occurrences');
+    }
+    console.log('DOM traverse done in ' + (Date.now() - t1) + ' milliseconds');
 });
