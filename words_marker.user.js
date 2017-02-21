@@ -56,7 +56,7 @@ $(function () {
     function try_remove_word(node) {
         const $marked_word = $(node).parent('._highlighted');
         if ($marked_word.length) { // removing word
-            const word = node.textContent;
+            const word = node.textContent.toLowerCase();
             $marked_word.contents().unwrap()[0].normalize();
             words_set.delete(word);
             GM_setValue('word_list', JSON.stringify([...words_set]));
